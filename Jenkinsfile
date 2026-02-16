@@ -20,62 +20,71 @@ pipeline {
 
         // Application configuration
         APP_NAME = 'taskmanager'
+
+        // Add custom bin directory to PATH
+        PATH = "$HOME/bin:/usr/local/bin:$PATH"
     }
 
     stages {
-        stage('Install Prerequisites') {
+        stage('Setup Tools') {
             steps {
-                echo '📦 Installing required tools...'
-                sh '''
-                    # Check if running as root or with sudo
-                    if [ "$(id -u)" -eq 0 ]; then
-                        SUDO=""
-                    else
-                        SUDO="sudo"
-                    fi
+                echo '� Setting up required tools...'
+                script {
+                    // Install Docker CLI if not present (without sudo)
+                    sh '''
+                        if ! command -v docker &> /dev/null; then
+                            echo "📦 Installing Docker CLI..."
+                            cd /tmp
 
-                    # Install Docker if not present
-                    if ! command -v docker &> /dev/null; then
-                        echo "Installing Docker..."
-                        $SUDO apt-get update
-                        $SUDO apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+                            # Download and install Docker CLI
+                            curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz -o docker.tgz
+                            tar xzvf docker.tgz
+                            cp docker/docker /usr/local/bin/ 2>/dev/null || cp docker/docker $HOME/bin/ || mkdir -p $HOME/bin && cp docker/docker $HOME/bin/
+                            rm -rf docker docker.tgz
 
-                        # Add Docker GPG key
-                        curl -fsSL https://download.docker.com/linux/debian/gpg | $SUDO gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+                            # Add to PATH if needed
+                            export PATH=$HOME/bin:$PATH
 
-                        # Add Docker repository
-                        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | $SUDO tee /etc/apt/sources.list.d/docker.list > /dev/null
+                            echo "✅ Docker CLI installed"
+                        else
+                            echo "✅ Docker CLI already available"
+                        fi
 
-                        # Install Docker
-                        $SUDO apt-get update
-                        $SUDO apt-get install -y docker-ce-cli docker-compose-plugin
+                        # Install kubectl if not present
+                        if ! command -v kubectl &> /dev/null; then
+                            echo "📦 Installing kubectl..."
+                            cd /tmp
+                            curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+                            chmod +x kubectl
+                            cp kubectl /usr/local/bin/ 2>/dev/null || cp kubectl $HOME/bin/ || mkdir -p $HOME/bin && cp kubectl $HOME/bin/
+                            rm kubectl
 
-                        # Add current user to docker group
-                        $SUDO usermod -aG docker $(whoami) || true
+                            # Add to PATH if needed
+                            export PATH=$HOME/bin:$PATH
 
-                        echo "✅ Docker installed successfully"
-                    else
-                        echo "✅ Docker already installed"
-                    fi
+                            echo "✅ kubectl installed"
+                        else
+                            echo "✅ kubectl already available"
+                        fi
 
-                    # Install kubectl if not present
-                    if ! command -v kubectl &> /dev/null; then
-                        echo "Installing kubectl..."
-                        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                        $SUDO install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                        rm kubectl
-                        echo "✅ kubectl installed successfully"
-                    else
-                        echo "✅ kubectl already installed"
-                    fi
+                        # Install docker-compose if not present
+                        if ! command -v docker-compose &> /dev/null; then
+                            echo "📦 Installing docker-compose..."
+                            cd /tmp
+                            curl -L "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-linux-x86_64" -o docker-compose
+                            chmod +x docker-compose
+                            cp docker-compose /usr/local/bin/ 2>/dev/null || cp docker-compose $HOME/bin/ || mkdir -p $HOME/bin && cp docker-compose $HOME/bin/
+                            rm docker-compose
 
-                    # Verify installations
-                    echo ""
-                    echo "=== Installed Versions ==="
-                    docker --version || echo "⚠️ Docker not accessible"
-                    docker-compose version || echo "⚠️ Docker Compose not accessible"
-                    kubectl version --client || echo "⚠️ kubectl not accessible"
-                '''
+                            # Add to PATH if needed
+                            export PATH=$HOME/bin:$PATH
+
+                            echo "✅ docker-compose installed"
+                        else
+                            echo "✅ docker-compose already available"
+                        fi
+                    '''
+                }
             }
         }
 
