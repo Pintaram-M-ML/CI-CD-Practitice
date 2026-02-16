@@ -248,17 +248,36 @@ EOF
             steps {
                 echo '📤 Pushing images to Docker Hub...'
                 script {
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                        sh """
-                            docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
-                            docker push ${FRONTEND_IMAGE}:${LATEST_TAG}
+                    try {
+                        echo "Logging in to Docker Hub..."
+                        docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
+                            echo "Login successful! Starting push..."
 
-                            docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
-                            docker push ${BACKEND_IMAGE}:${LATEST_TAG}
+                            echo "Pushing frontend image..."
+                            sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                            sh "docker push ${FRONTEND_IMAGE}:${LATEST_TAG}"
+                            echo "✅ Frontend images pushed"
 
-                            docker push ${DB_IMAGE}:${IMAGE_TAG}
-                            docker push ${DB_IMAGE}:${LATEST_TAG}
-                        """
+                            echo "Pushing backend image..."
+                            sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
+                            sh "docker push ${BACKEND_IMAGE}:${LATEST_TAG}"
+                            echo "✅ Backend images pushed"
+
+                            echo "Pushing database image..."
+                            sh "docker push ${DB_IMAGE}:${IMAGE_TAG}"
+                            sh "docker push ${DB_IMAGE}:${LATEST_TAG}"
+                            echo "✅ Database images pushed"
+
+                            echo "✅ All images pushed successfully!"
+                        }
+                    } catch (Exception e) {
+                        echo "⚠️ Warning: Failed to push images to Docker Hub"
+                        echo "Error: ${e.message}"
+                        echo "Stack trace:"
+                        e.printStackTrace()
+                        echo "💡 To fix: Add Docker Hub credentials in Jenkins with ID 'dockerhub-credentials'"
+                        echo "Continuing pipeline without pushing images..."
+                        currentBuild.result = 'UNSTABLE'
                     }
                 }
             }
@@ -285,28 +304,72 @@ EOF
             steps {
                 echo '🚀 Deploying to Kubernetes...'
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
-                        sh """
-                            export KUBECONFIG=\${KUBECONFIG}
+                    try {
+                        // Try to use kubeconfig from credentials first
+                        try {
+                            withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                                sh """
+                                    export KUBECONFIG=\${KUBECONFIG}
+                                    kubectl cluster-info
+                                """
+                                env.USE_KUBECONFIG_CREDS = 'true'
+                            }
+                        } catch (Exception e) {
+                            echo "⚠️ Kubeconfig credentials not found, using default kubeconfig"
+                            env.USE_KUBECONFIG_CREDS = 'false'
+                        }
 
-                            # Apply PVC first
-                            kubectl apply -f db-pvc.yaml -n ${K8S_NAMESPACE}
+                        // Deploy to Kubernetes
+                        if (env.USE_KUBECONFIG_CREDS == 'true') {
+                            withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                                sh """
+                                    export KUBECONFIG=\${KUBECONFIG}
 
-                            # Apply services
-                            kubectl apply -f db-service.yaml -n ${K8S_NAMESPACE}
-                            kubectl apply -f backend-service.yaml -n ${K8S_NAMESPACE}
-                            kubectl apply -f frontend-service.yaml -n ${K8S_NAMESPACE}
+                                    # Apply PVC first
+                                    kubectl apply -f db-pvc.yaml -n ${K8S_NAMESPACE}
 
-                            # Apply deployments
-                            kubectl apply -f db-deployment.yaml -n ${K8S_NAMESPACE}
-                            kubectl apply -f backend-deployment.yaml -n ${K8S_NAMESPACE}
-                            kubectl apply -f frontend-deployment.yaml -n ${K8S_NAMESPACE}
+                                    # Apply services
+                                    kubectl apply -f db-service.yaml -n ${K8S_NAMESPACE}
+                                    kubectl apply -f backend-service.yaml -n ${K8S_NAMESPACE}
+                                    kubectl apply -f frontend-service.yaml -n ${K8S_NAMESPACE}
 
-                            # Wait for rollout to complete
-                            kubectl rollout status deployment/taskmanager-db -n ${K8S_NAMESPACE} --timeout=5m
-                            kubectl rollout status deployment/taskmanager-backend -n ${K8S_NAMESPACE} --timeout=5m
-                            kubectl rollout status deployment/taskmanager-frontend -n ${K8S_NAMESPACE} --timeout=5m
-                        """
+                                    # Apply deployments
+                                    kubectl apply -f db-deployment.yaml -n ${K8S_NAMESPACE}
+                                    kubectl apply -f backend-deployment.yaml -n ${K8S_NAMESPACE}
+                                    kubectl apply -f frontend-deployment.yaml -n ${K8S_NAMESPACE}
+
+                                    # Wait for rollout to complete
+                                    kubectl rollout status deployment/taskmanager-db -n ${K8S_NAMESPACE} --timeout=5m
+                                    kubectl rollout status deployment/taskmanager-backend -n ${K8S_NAMESPACE} --timeout=5m
+                                    kubectl rollout status deployment/taskmanager-frontend -n ${K8S_NAMESPACE} --timeout=5m
+                                """
+                            }
+                        } else {
+                            sh """
+                                # Use default kubeconfig (if available)
+                                # Apply PVC first
+                                kubectl apply -f db-pvc.yaml -n ${K8S_NAMESPACE}
+
+                                # Apply services
+                                kubectl apply -f db-service.yaml -n ${K8S_NAMESPACE}
+                                kubectl apply -f backend-service.yaml -n ${K8S_NAMESPACE}
+                                kubectl apply -f frontend-service.yaml -n ${K8S_NAMESPACE}
+
+                                # Apply deployments
+                                kubectl apply -f db-deployment.yaml -n ${K8S_NAMESPACE}
+                                kubectl apply -f backend-deployment.yaml -n ${K8S_NAMESPACE}
+                                kubectl apply -f frontend-deployment.yaml -n ${K8S_NAMESPACE}
+
+                                # Wait for rollout to complete
+                                kubectl rollout status deployment/taskmanager-db -n ${K8S_NAMESPACE} --timeout=5m
+                                kubectl rollout status deployment/taskmanager-backend -n ${K8S_NAMESPACE} --timeout=5m
+                                kubectl rollout status deployment/taskmanager-frontend -n ${K8S_NAMESPACE} --timeout=5m
+                            """
+                        }
+                        echo "✅ Deployment successful!"
+                    } catch (Exception e) {
+                        echo "❌ Deployment failed: ${e.message}"
+                        throw e
                     }
                 }
             }
