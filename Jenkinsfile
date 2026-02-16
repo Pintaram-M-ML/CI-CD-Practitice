@@ -311,65 +311,85 @@ EOF
                 echo '🚀 Deploying to Kubernetes...'
                 script {
                     try {
-                        // Try to use kubeconfig from credentials first
+                        // Check if kubeconfig credentials exist
+                        def useCredentials = false
                         try {
                             withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
                                 sh """
                                     export KUBECONFIG=\${KUBECONFIG}
                                     kubectl cluster-info
                                 """
-                                env.USE_KUBECONFIG_CREDS = 'true'
+                                useCredentials = true
+                                echo "✅ Using kubeconfig from Jenkins credentials"
                             }
                         } catch (Exception e) {
-                            echo "⚠️ Kubeconfig credentials not found, using default kubeconfig"
-                            env.USE_KUBECONFIG_CREDS = 'false'
+                            echo "⚠️ Kubeconfig credentials not found, trying kind cluster access..."
+
+                            // Try to access kind cluster directly
+                            try {
+                                sh """
+                                    # Get kind cluster kubeconfig
+                                    docker exec kubeadm-kind-control-plane kubectl cluster-info
+                                """
+                                echo "✅ Found kind cluster, will use docker exec"
+                                useCredentials = false
+                            } catch (Exception e2) {
+                                echo "❌ Cannot access Kubernetes cluster"
+                                echo "Please either:"
+                                echo "  1. Add kubeconfig as Jenkins credential with ID 'kubeconfig-credentials'"
+                                echo "  2. Ensure kind cluster 'kubeadm-kind' is running"
+                                throw new Exception("No Kubernetes cluster access available")
+                            }
                         }
 
                         // Deploy to Kubernetes
-                        if (env.USE_KUBECONFIG_CREDS == 'true') {
+                        if (useCredentials) {
                             withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
                                 sh """
                                     export KUBECONFIG=\${KUBECONFIG}
 
-                                    # Apply PVC first
+                                    echo "Applying Kubernetes resources..."
                                     kubectl apply -f db-pvc.yaml -n ${K8S_NAMESPACE}
-
-                                    # Apply services
                                     kubectl apply -f db-service.yaml -n ${K8S_NAMESPACE}
                                     kubectl apply -f backend-service.yaml -n ${K8S_NAMESPACE}
                                     kubectl apply -f frontend-service.yaml -n ${K8S_NAMESPACE}
-
-                                    # Apply deployments
                                     kubectl apply -f db-deployment.yaml -n ${K8S_NAMESPACE}
                                     kubectl apply -f backend-deployment.yaml -n ${K8S_NAMESPACE}
                                     kubectl apply -f frontend-deployment.yaml -n ${K8S_NAMESPACE}
 
-                                    # Wait for rollout to complete
+                                    echo "Waiting for deployments to be ready..."
                                     kubectl rollout status deployment/taskmanager-db -n ${K8S_NAMESPACE} --timeout=5m
                                     kubectl rollout status deployment/taskmanager-backend -n ${K8S_NAMESPACE} --timeout=5m
                                     kubectl rollout status deployment/taskmanager-frontend -n ${K8S_NAMESPACE} --timeout=5m
                                 """
                             }
                         } else {
+                            // Use docker exec to access kind cluster
                             sh """
-                                # Use default kubeconfig (if available)
-                                # Apply PVC first
-                                kubectl apply -f db-pvc.yaml -n ${K8S_NAMESPACE}
+                                echo "Deploying to kind cluster via docker exec..."
 
-                                # Apply services
-                                kubectl apply -f db-service.yaml -n ${K8S_NAMESPACE}
-                                kubectl apply -f backend-service.yaml -n ${K8S_NAMESPACE}
-                                kubectl apply -f frontend-service.yaml -n ${K8S_NAMESPACE}
+                                # Copy YAML files to kind control plane
+                                docker cp db-pvc.yaml kubeadm-kind-control-plane:/tmp/
+                                docker cp db-service.yaml kubeadm-kind-control-plane:/tmp/
+                                docker cp backend-service.yaml kubeadm-kind-control-plane:/tmp/
+                                docker cp frontend-service.yaml kubeadm-kind-control-plane:/tmp/
+                                docker cp db-deployment.yaml kubeadm-kind-control-plane:/tmp/
+                                docker cp backend-deployment.yaml kubeadm-kind-control-plane:/tmp/
+                                docker cp frontend-deployment.yaml kubeadm-kind-control-plane:/tmp/
 
-                                # Apply deployments
-                                kubectl apply -f db-deployment.yaml -n ${K8S_NAMESPACE}
-                                kubectl apply -f backend-deployment.yaml -n ${K8S_NAMESPACE}
-                                kubectl apply -f frontend-deployment.yaml -n ${K8S_NAMESPACE}
+                                # Apply resources
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-pvc.yaml -n ${K8S_NAMESPACE}
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-service.yaml -n ${K8S_NAMESPACE}
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-service.yaml -n ${K8S_NAMESPACE}
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/frontend-service.yaml -n ${K8S_NAMESPACE}
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-deployment.yaml -n ${K8S_NAMESPACE}
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-deployment.yaml -n ${K8S_NAMESPACE}
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/frontend-deployment.yaml -n ${K8S_NAMESPACE}
 
-                                # Wait for rollout to complete
-                                kubectl rollout status deployment/taskmanager-db -n ${K8S_NAMESPACE} --timeout=5m
-                                kubectl rollout status deployment/taskmanager-backend -n ${K8S_NAMESPACE} --timeout=5m
-                                kubectl rollout status deployment/taskmanager-frontend -n ${K8S_NAMESPACE} --timeout=5m
+                                echo "Waiting for deployments to be ready..."
+                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-db -n ${K8S_NAMESPACE} --timeout=5m
+                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-backend -n ${K8S_NAMESPACE} --timeout=5m
+                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-frontend -n ${K8S_NAMESPACE} --timeout=5m
                             """
                         }
                         echo "✅ Deployment successful!"
