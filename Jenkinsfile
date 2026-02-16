@@ -83,6 +83,46 @@ pipeline {
                         else
                             echo "✅ docker-compose already available"
                         fi
+
+                        # Install Node.js and npm if not present
+                        if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
+                            echo "📦 Installing Node.js and npm..."
+                            cd /tmp
+
+                            # Download Node.js LTS (v18.x)
+                            curl -fsSL https://nodejs.org/dist/v18.19.0/node-v18.19.0-linux-x64.tar.xz -o node.tar.xz
+                            tar -xf node.tar.xz
+
+                            # Copy to user bin or local bin
+                            if [ -w /usr/local/bin ]; then
+                                cp -r node-v18.19.0-linux-x64/bin/* /usr/local/bin/
+                                cp -r node-v18.19.0-linux-x64/lib/* /usr/local/lib/
+                                cp -r node-v18.19.0-linux-x64/include/* /usr/local/include/ 2>/dev/null || true
+                                cp -r node-v18.19.0-linux-x64/share/* /usr/local/share/ 2>/dev/null || true
+                            else
+                                # Install to user directory
+                                mkdir -p $HOME/.nodejs
+                                cp -r node-v18.19.0-linux-x64/* $HOME/.nodejs/
+                                ln -sf $HOME/.nodejs/bin/node $HOME/bin/node
+                                ln -sf $HOME/.nodejs/bin/npm $HOME/bin/npm
+                                ln -sf $HOME/.nodejs/bin/npx $HOME/bin/npx
+                            fi
+
+                            rm -rf node.tar.xz node-v18.19.0-linux-x64
+                            echo "✅ Node.js and npm installed"
+                        else
+                            echo "✅ Node.js and npm already available"
+                        fi
+
+                        # Verify all installations
+                        echo ""
+                        echo "=== Installed Tool Versions ==="
+                        docker --version || echo "⚠️ Docker not accessible"
+                        docker-compose --version || echo "⚠️ Docker Compose not accessible"
+                        kubectl version --client --short 2>/dev/null || kubectl version --client || echo "⚠️ kubectl not accessible"
+                        node --version || echo "⚠️ Node.js not accessible"
+                        npm --version || echo "⚠️ npm not accessible"
+                        echo "================================"
                     '''
                 }
             }
