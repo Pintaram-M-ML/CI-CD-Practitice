@@ -89,9 +89,12 @@ pipeline {
                             echo "📦 Installing Node.js and npm..."
                             cd /tmp
 
-                            # Download Node.js LTS (v18.x)
-                            curl -fsSL https://nodejs.org/dist/v18.19.0/node-v18.19.0-linux-x64.tar.xz -o node.tar.xz
-                            tar -xf node.tar.xz
+                            # Download Node.js LTS (v18.x) - using .tar.gz instead of .tar.xz
+                            curl -fsSL https://nodejs.org/dist/v18.19.0/node-v18.19.0-linux-x64.tar.gz -o node.tar.gz
+                            tar -xzf node.tar.gz
+
+                            # Create bin directory if needed
+                            mkdir -p $HOME/bin
 
                             # Copy to user bin or local bin
                             if [ -w /usr/local/bin ]; then
@@ -108,7 +111,7 @@ pipeline {
                                 ln -sf $HOME/.nodejs/bin/npx $HOME/bin/npx
                             fi
 
-                            rm -rf node.tar.xz node-v18.19.0-linux-x64
+                            rm -rf node.tar.gz node-v18.19.0-linux-x64
                             echo "✅ Node.js and npm installed"
                         else
                             echo "✅ Node.js and npm already available"
