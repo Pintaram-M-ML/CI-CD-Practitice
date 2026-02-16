@@ -368,16 +368,25 @@ EOF
                             sh """
                                 echo "Deploying to kind cluster via docker exec..."
 
-                                # Copy YAML files to kind control plane
-                                docker cp db-pvc.yaml kubeadm-kind-control-plane:/tmp/
-                                docker cp db-service.yaml kubeadm-kind-control-plane:/tmp/
-                                docker cp backend-service.yaml kubeadm-kind-control-plane:/tmp/
-                                docker cp frontend-service.yaml kubeadm-kind-control-plane:/tmp/
-                                docker cp db-deployment.yaml kubeadm-kind-control-plane:/tmp/
-                                docker cp backend-deployment.yaml kubeadm-kind-control-plane:/tmp/
-                                docker cp frontend-deployment.yaml kubeadm-kind-control-plane:/tmp/
+                                # Get the absolute path of YAML files
+                                WORKSPACE_DIR=\$(pwd)
+                                echo "Workspace directory: \$WORKSPACE_DIR"
+
+                                # Copy YAML files to kind control plane with full paths
+                                docker cp "\${WORKSPACE_DIR}/db-pvc.yaml" kubeadm-kind-control-plane:/tmp/db-pvc.yaml
+                                docker cp "\${WORKSPACE_DIR}/db-service.yaml" kubeadm-kind-control-plane:/tmp/db-service.yaml
+                                docker cp "\${WORKSPACE_DIR}/backend-service.yaml" kubeadm-kind-control-plane:/tmp/backend-service.yaml
+                                docker cp "\${WORKSPACE_DIR}/frontend-service.yaml" kubeadm-kind-control-plane:/tmp/frontend-service.yaml
+                                docker cp "\${WORKSPACE_DIR}/db-deployment.yaml" kubeadm-kind-control-plane:/tmp/db-deployment.yaml
+                                docker cp "\${WORKSPACE_DIR}/backend-deployment.yaml" kubeadm-kind-control-plane:/tmp/backend-deployment.yaml
+                                docker cp "\${WORKSPACE_DIR}/frontend-deployment.yaml" kubeadm-kind-control-plane:/tmp/frontend-deployment.yaml
+
+                                # Verify files were copied
+                                echo "Verifying files in kind control plane..."
+                                docker exec kubeadm-kind-control-plane ls -la /tmp/*.yaml
 
                                 # Apply resources
+                                echo "Applying Kubernetes resources..."
                                 docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-pvc.yaml -n ${K8S_NAMESPACE}
                                 docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-service.yaml -n ${K8S_NAMESPACE}
                                 docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-service.yaml -n ${K8S_NAMESPACE}
