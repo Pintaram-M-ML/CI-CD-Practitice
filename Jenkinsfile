@@ -365,41 +365,41 @@ EOF
                             }
                         } else {
                             // Use docker exec to access kind cluster
-                            sh """
+                            sh '''
                                 echo "Deploying to kind cluster via docker exec..."
 
                                 # Get the absolute path of YAML files
-                                WORKSPACE_DIR=\$(pwd)
-                                echo "Workspace directory: \$WORKSPACE_DIR"
+                                WORKSPACE_DIR="$(pwd)"
+                                echo "Workspace directory: $WORKSPACE_DIR"
 
                                 # Copy YAML files to kind control plane with full paths
-                                docker cp "\${WORKSPACE_DIR}/db-pvc.yaml" kubeadm-kind-control-plane:/tmp/db-pvc.yaml
-                                docker cp "\${WORKSPACE_DIR}/db-service.yaml" kubeadm-kind-control-plane:/tmp/db-service.yaml
-                                docker cp "\${WORKSPACE_DIR}/backend-service.yaml" kubeadm-kind-control-plane:/tmp/backend-service.yaml
-                                docker cp "\${WORKSPACE_DIR}/frontend-service.yaml" kubeadm-kind-control-plane:/tmp/frontend-service.yaml
-                                docker cp "\${WORKSPACE_DIR}/db-deployment.yaml" kubeadm-kind-control-plane:/tmp/db-deployment.yaml
-                                docker cp "\${WORKSPACE_DIR}/backend-deployment.yaml" kubeadm-kind-control-plane:/tmp/backend-deployment.yaml
-                                docker cp "\${WORKSPACE_DIR}/frontend-deployment.yaml" kubeadm-kind-control-plane:/tmp/frontend-deployment.yaml
+                                docker cp "$WORKSPACE_DIR/db-pvc.yaml" kubeadm-kind-control-plane:/tmp/db-pvc.yaml
+                                docker cp "$WORKSPACE_DIR/db-service.yaml" kubeadm-kind-control-plane:/tmp/db-service.yaml
+                                docker cp "$WORKSPACE_DIR/backend-service.yaml" kubeadm-kind-control-plane:/tmp/backend-service.yaml
+                                docker cp "$WORKSPACE_DIR/frontend-service.yaml" kubeadm-kind-control-plane:/tmp/frontend-service.yaml
+                                docker cp "$WORKSPACE_DIR/db-deployment.yaml" kubeadm-kind-control-plane:/tmp/db-deployment.yaml
+                                docker cp "$WORKSPACE_DIR/backend-deployment.yaml" kubeadm-kind-control-plane:/tmp/backend-deployment.yaml
+                                docker cp "$WORKSPACE_DIR/frontend-deployment.yaml" kubeadm-kind-control-plane:/tmp/frontend-deployment.yaml
 
                                 # Verify files were copied
                                 echo "Verifying files in kind control plane..."
-                                docker exec kubeadm-kind-control-plane ls -la /tmp/*.yaml
+                                docker exec kubeadm-kind-control-plane ls -la /tmp/db-pvc.yaml /tmp/db-service.yaml /tmp/backend-service.yaml /tmp/frontend-service.yaml /tmp/db-deployment.yaml /tmp/backend-deployment.yaml /tmp/frontend-deployment.yaml
 
                                 # Apply resources
                                 echo "Applying Kubernetes resources..."
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-pvc.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-service.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-service.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/frontend-service.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-deployment.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-deployment.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/frontend-deployment.yaml -n ${K8S_NAMESPACE}
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-pvc.yaml -n ''' + K8S_NAMESPACE + '''
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-service.yaml -n ''' + K8S_NAMESPACE + '''
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-service.yaml -n ''' + K8S_NAMESPACE + '''
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/frontend-service.yaml -n ''' + K8S_NAMESPACE + '''
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-deployment.yaml -n ''' + K8S_NAMESPACE + '''
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-deployment.yaml -n ''' + K8S_NAMESPACE + '''
+                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/frontend-deployment.yaml -n ''' + K8S_NAMESPACE + '''
 
                                 echo "Waiting for deployments to be ready..."
-                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-db -n ${K8S_NAMESPACE} --timeout=5m
-                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-backend -n ${K8S_NAMESPACE} --timeout=5m
-                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-frontend -n ${K8S_NAMESPACE} --timeout=5m
-                            """
+                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-db -n ''' + K8S_NAMESPACE + ''' --timeout=5m
+                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-backend -n ''' + K8S_NAMESPACE + ''' --timeout=5m
+                                docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-frontend -n ''' + K8S_NAMESPACE + ''' --timeout=5m
+                            '''
                         }
                         echo "✅ Deployment successful!"
                     } catch (Exception e) {
