@@ -1,0 +1,15 @@
+# Use nginx alpine for a lightweight web server
+FROM nginx:alpine
+
+# Copy the frontend files to nginx's default public directory
+COPY frontend/src/index.html /usr/share/nginx/html/
+COPY frontend/src/styles /usr/share/nginx/html/styles
+
+# Copy custom nginx configuration
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx server
+CMD ["nginx", "-g", "daemon off;"]

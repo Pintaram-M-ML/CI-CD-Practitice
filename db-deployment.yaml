@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskmanager-db
+  labels:
+    app: taskmanager
+    tier: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taskmanager
+      tier: db
+  template:
+    metadata:
+      labels:
+        app: taskmanager
+        tier: db
+    spec:
+      containers:
+      - name: taskmanager-db
+        image: pintaram369/taskmanager-postgres:1.0
+        env:
+        - name: POSTGRES_PASSWORD
+          value: "postgres"
+        - name: POSTGRES_DB
+          value: "taskmanager"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      

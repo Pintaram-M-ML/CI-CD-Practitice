@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <link rel="stylesheet" href="styles/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 My Task Manager</h1>
+            <p class="subtitle">Stay organized and productive</p>
+        </header>
+
+        <div class="add-task-section">
+            <input type="text" id="taskInput" placeholder="What needs to be done?" class="task-input">
+            <button onclick="addTask()" class="btn-add">Add Task</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <span class="stat-number" id="totalTasks">0</span>
+                <span class="stat-label">Total Tasks</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="completedTasks">0</span>
+                <span class="stat-label">Completed</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="pendingTasks">0</span>
+                <span class="stat-label">Pending</span>
+            </div>
+        </div>
+
+        <div class="tasks-container">
+            <h2>Your Tasks</h2>
+            <ul id="taskList" class="task-list">
+                <!-- Tasks will be added here dynamically -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api/tasks';
+        let tasks = [];
+
+        // Fetch all tasks from the backend
+        async function fetchTasks() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Failed to fetch tasks');
+                tasks = await response.json();
+                renderTasks();
+                updateStats();
+            } catch (error) {
+                console.error('Error fetching tasks:', error);
+                showError('Failed to load tasks. Please refresh the page.');
+            }
+        }
+
+        // Add a new task
+        async function addTask() {
+            const input = document.getElementById('taskInput');
+            const taskText = input.value.trim();
+
+            if (taskText === '') {
+                input.classList.add('shake');
+                setTimeout(() => input.classList.remove('shake'), 500);
+                return;
+            }
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: taskText }),
+                });
+
+                if (!response.ok) throw new Error('Failed to create task');
+
+                const newTask = await response.json();
+                tasks.unshift(newTask);
+                input.value = '';
+                renderTasks();
+                updateStats();
+            } catch (error) {
+                console.error('Error adding task:', error);
+                showError('Failed to add task. Please try again.');
+            }
+        }
+
+        // Toggle task completion status
+        async function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ completed: !task.completed }),
+                });
+
+                if (!response.ok) throw new Error('Failed to update task');
+
+                const updatedTask = await response.json();
+                const index = tasks.findIndex(t => t.id === id);
+                tasks[index] = updatedTask;
+                renderTasks();
+                updateStats();
+            } catch (error) {
+                console.error('Error toggling task:', error);
+                showError('Failed to update task. Please try again.');
+            }
+        }
+
+        // Delete a task
+        async function deleteTask(id) {
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE',
+                });
+
+                if (!response.ok) throw new Error('Failed to delete task');
+
+                tasks = tasks.filter(t => t.id !== id);
+                renderTasks();
+                updateStats();
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                showError('Failed to delete task. Please try again.');
+            }
+        }
+
+        // Render tasks to the DOM
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+
+            if (tasks.length === 0) {
+                taskList.innerHTML = '<li class="empty-state">No tasks yet. Add one above! 🎯</li>';
+                return;
+            }
+
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = `task-item ${task.completed ? 'completed' : ''}`;
+                li.innerHTML = `
+                    <div class="task-content">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''}
+                               onchange="toggleTask(${task.id})" class="task-checkbox">
+                        <span class="task-text">${escapeHtml(task.text)}</span>
+                    </div>
+                    <button onclick="deleteTask(${task.id})" class="btn-delete">🗑️</button>
+                `;
+                taskList.appendChild(li);
+            });
+        }
+
+        // Update statistics
+        function updateStats() {
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            const pending = total - completed;
+
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('pendingTasks').textContent = pending;
+        }
+
+        // Show error message
+        function showError(message) {
+            const taskList = document.getElementById('taskList');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            taskList.prepend(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Allow Enter key to add task
+        document.getElementById('taskInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        // Initialize - fetch tasks on page load
+        fetchTasks();
+    </script>
+</body>
+</html>

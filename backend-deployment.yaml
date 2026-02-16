@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskmanager-backend
+  labels:
+    app: taskmanager
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taskmanager
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: taskmanager
+        tier: backend
+    spec:
+      containers:
+      - name: taskmanager-backend
+        image: pintaram369/taskmanager-backend:1.0
+        env:
+        - name: DB_HOST
+          value: "db"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "taskmanager"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          value: "postgres"
+        - name: NODE_ENV
+          value: "production"
+        ports:
+        - containerPort: 3000
+       

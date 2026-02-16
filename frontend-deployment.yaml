@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskmanager-frontend
+  labels:
+    app: taskmanager
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taskmanager
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: taskmanager
+        tier: frontend
+    spec:
+      containers:
+      - name: taskmanager-frontend
+        image: pintaram369/taskmanager-frontend:1.0
+        ports:
+        - containerPort: 80 
