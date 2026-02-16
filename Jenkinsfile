@@ -250,31 +250,37 @@ EOF
                 script {
                     try {
                         echo "Logging in to Docker Hub..."
-                        docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
-                            echo "Login successful! Starting push..."
+                        withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}",
+                                                          usernameVariable: 'DOCKER_USER',
+                                                          passwordVariable: 'DOCKER_PASS')]) {
+                            sh '''
+                                echo "Authenticating with Docker Hub..."
+                                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin ${DOCKER_REGISTRY}
 
-                            echo "Pushing frontend image..."
-                            sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
-                            sh "docker push ${FRONTEND_IMAGE}:${LATEST_TAG}"
-                            echo "✅ Frontend images pushed"
+                                echo "Pushing frontend image..."
+                                docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                                docker push ${FRONTEND_IMAGE}:${LATEST_TAG}
+                                echo "✅ Frontend images pushed"
 
-                            echo "Pushing backend image..."
-                            sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
-                            sh "docker push ${BACKEND_IMAGE}:${LATEST_TAG}"
-                            echo "✅ Backend images pushed"
+                                echo "Pushing backend image..."
+                                docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                                docker push ${BACKEND_IMAGE}:${LATEST_TAG}
+                                echo "✅ Backend images pushed"
 
-                            echo "Pushing database image..."
-                            sh "docker push ${DB_IMAGE}:${IMAGE_TAG}"
-                            sh "docker push ${DB_IMAGE}:${LATEST_TAG}"
-                            echo "✅ Database images pushed"
+                                echo "Pushing database image..."
+                                docker push ${DB_IMAGE}:${IMAGE_TAG}
+                                docker push ${DB_IMAGE}:${LATEST_TAG}
+                                echo "✅ Database images pushed"
 
-                            echo "✅ All images pushed successfully!"
+                                echo "✅ All images pushed successfully!"
+
+                                # Logout
+                                docker logout ${DOCKER_REGISTRY}
+                            '''
                         }
                     } catch (Exception e) {
                         echo "⚠️ Warning: Failed to push images to Docker Hub"
                         echo "Error: ${e.message}"
-                        echo "Stack trace:"
-                        e.printStackTrace()
                         echo "💡 To fix: Add Docker Hub credentials in Jenkins with ID 'dockerhub-credentials'"
                         echo "Continuing pipeline without pushing images..."
                         currentBuild.result = 'UNSTABLE'
