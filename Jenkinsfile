@@ -365,53 +365,30 @@ EOF
                             }
                         } else {
                             // Use docker exec to access kind cluster
-                            // Create a tar archive and copy it to avoid path issues with spaces
+                            // Apply manifests using kubectl with stdin to avoid file copy issues
                             sh """
                                 echo "Deploying to kind cluster via docker exec..."
 
-                                # Create a temporary tar archive with all YAML files
-                                echo "Creating archive of YAML files..."
-                                tar -czf k8s-manifests.tar.gz db-pvc.yaml db-service.yaml backend-service.yaml frontend-service.yaml db-deployment.yaml backend-deployment.yaml frontend-deployment.yaml
+                                # Apply resources using kubectl with stdin (no file copy needed!)
+                                echo "Applying PVC..."
+                                cat db-pvc.yaml | docker exec -i kubeadm-kind-control-plane kubectl apply -f - -n ${K8S_NAMESPACE}
 
-                                # Verify archive was created
-                                echo "Verifying archive..."
-                                ls -lh k8s-manifests.tar.gz
+                                echo "Applying services..."
+                                cat db-service.yaml | docker exec -i kubeadm-kind-control-plane kubectl apply -f - -n ${K8S_NAMESPACE}
+                                cat backend-service.yaml | docker exec -i kubeadm-kind-control-plane kubectl apply -f - -n ${K8S_NAMESPACE}
+                                cat frontend-service.yaml | docker exec -i kubeadm-kind-control-plane kubectl apply -f - -n ${K8S_NAMESPACE}
 
-                                # Copy the archive to kind control plane
-                                echo "Copying manifests to kind control plane..."
-                                docker cp k8s-manifests.tar.gz kubeadm-kind-control-plane:/tmp/k8s-manifests.tar.gz
-
-                                # Verify the file exists in the container
-                                echo "Verifying file in container..."
-                                docker exec kubeadm-kind-control-plane ls -lh /tmp/k8s-manifests.tar.gz
-
-                                # Extract the archive inside the container
-                                echo "Extracting manifests..."
-                                docker exec kubeadm-kind-control-plane tar -xzf /tmp/k8s-manifests.tar.gz -C /tmp/
-
-                                # Verify files were extracted
-                                echo "Verifying extracted files in kind control plane..."
-                                docker exec kubeadm-kind-control-plane ls -la /tmp/db-pvc.yaml /tmp/db-service.yaml /tmp/backend-service.yaml /tmp/frontend-service.yaml /tmp/db-deployment.yaml /tmp/backend-deployment.yaml /tmp/frontend-deployment.yaml
-
-                                # Apply resources
-                                echo "Applying Kubernetes resources..."
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-pvc.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-service.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-service.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/frontend-service.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/db-deployment.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/backend-deployment.yaml -n ${K8S_NAMESPACE}
-                                docker exec kubeadm-kind-control-plane kubectl apply -f /tmp/frontend-deployment.yaml -n ${K8S_NAMESPACE}
+                                echo "Applying deployments..."
+                                cat db-deployment.yaml | docker exec -i kubeadm-kind-control-plane kubectl apply -f - -n ${K8S_NAMESPACE}
+                                cat backend-deployment.yaml | docker exec -i kubeadm-kind-control-plane kubectl apply -f - -n ${K8S_NAMESPACE}
+                                cat frontend-deployment.yaml | docker exec -i kubeadm-kind-control-plane kubectl apply -f - -n ${K8S_NAMESPACE}
 
                                 echo "Waiting for deployments to be ready..."
                                 docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-db -n ${K8S_NAMESPACE} --timeout=5m
                                 docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-backend -n ${K8S_NAMESPACE} --timeout=5m
                                 docker exec kubeadm-kind-control-plane kubectl rollout status deployment/taskmanager-frontend -n ${K8S_NAMESPACE} --timeout=5m
 
-                                # Cleanup
-                                echo "Cleaning up temporary files..."
-                                rm -f k8s-manifests.tar.gz
-                                docker exec kubeadm-kind-control-plane rm -f /tmp/k8s-manifests.tar.gz
+                                echo "✅ Deployment successful!"
                             """
                         }
                         echo "✅ Deployment successful!"
