@@ -373,16 +373,24 @@ EOF
                                 echo "Creating archive of YAML files..."
                                 tar -czf k8s-manifests.tar.gz db-pvc.yaml db-service.yaml backend-service.yaml frontend-service.yaml db-deployment.yaml backend-deployment.yaml frontend-deployment.yaml
 
+                                # Verify archive was created
+                                echo "Verifying archive..."
+                                ls -lh k8s-manifests.tar.gz
+
                                 # Copy the archive to kind control plane
                                 echo "Copying manifests to kind control plane..."
-                                docker cp k8s-manifests.tar.gz kubeadm-kind-control-plane:/tmp/
+                                docker cp k8s-manifests.tar.gz kubeadm-kind-control-plane:/tmp/k8s-manifests.tar.gz
+
+                                # Verify the file exists in the container
+                                echo "Verifying file in container..."
+                                docker exec kubeadm-kind-control-plane ls -lh /tmp/k8s-manifests.tar.gz
 
                                 # Extract the archive inside the container
                                 echo "Extracting manifests..."
                                 docker exec kubeadm-kind-control-plane tar -xzf /tmp/k8s-manifests.tar.gz -C /tmp/
 
                                 # Verify files were extracted
-                                echo "Verifying files in kind control plane..."
+                                echo "Verifying extracted files in kind control plane..."
                                 docker exec kubeadm-kind-control-plane ls -la /tmp/db-pvc.yaml /tmp/db-service.yaml /tmp/backend-service.yaml /tmp/frontend-service.yaml /tmp/db-deployment.yaml /tmp/backend-deployment.yaml /tmp/frontend-deployment.yaml
 
                                 # Apply resources
