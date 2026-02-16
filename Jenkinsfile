@@ -23,6 +23,62 @@ pipeline {
     }
 
     stages {
+        stage('Install Prerequisites') {
+            steps {
+                echo '📦 Installing required tools...'
+                sh '''
+                    # Check if running as root or with sudo
+                    if [ "$(id -u)" -eq 0 ]; then
+                        SUDO=""
+                    else
+                        SUDO="sudo"
+                    fi
+
+                    # Install Docker if not present
+                    if ! command -v docker &> /dev/null; then
+                        echo "Installing Docker..."
+                        $SUDO apt-get update
+                        $SUDO apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+
+                        # Add Docker GPG key
+                        curl -fsSL https://download.docker.com/linux/debian/gpg | $SUDO gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+                        # Add Docker repository
+                        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | $SUDO tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+                        # Install Docker
+                        $SUDO apt-get update
+                        $SUDO apt-get install -y docker-ce-cli docker-compose-plugin
+
+                        # Add current user to docker group
+                        $SUDO usermod -aG docker $(whoami) || true
+
+                        echo "✅ Docker installed successfully"
+                    else
+                        echo "✅ Docker already installed"
+                    fi
+
+                    # Install kubectl if not present
+                    if ! command -v kubectl &> /dev/null; then
+                        echo "Installing kubectl..."
+                        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                        $SUDO install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+                        rm kubectl
+                        echo "✅ kubectl installed successfully"
+                    else
+                        echo "✅ kubectl already installed"
+                    fi
+
+                    # Verify installations
+                    echo ""
+                    echo "=== Installed Versions ==="
+                    docker --version || echo "⚠️ Docker not accessible"
+                    docker-compose version || echo "⚠️ Docker Compose not accessible"
+                    kubectl version --client || echo "⚠️ kubectl not accessible"
+                '''
+            }
+        }
+
         stage('Checkout') {
             steps {
                 echo '📥 Checking out source code...'
