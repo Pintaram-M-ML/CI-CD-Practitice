@@ -26,7 +26,11 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo '📥 Checking out source code...'
-                checkout scm
+                // Clone the repository
+                git branch: 'master',
+                    url: 'https://github.com/Pintaram-M-ML/CI-CD-Practitice.git'
+
+                // Get short commit ID
                 sh 'git rev-parse --short HEAD > .git/commit-id'
                 script {
                     env.GIT_COMMIT_SHORT = readFile('.git/commit-id').trim()
